@@ -24,7 +24,7 @@ class Plaw():
         self.access_token = access_token
 
 
-    def __refresh_access_token__(self):
+    def _refresh_access_token(self):
         '''
         uses refresh token to retrieve a new access token
         :return: new access token
@@ -41,3 +41,34 @@ class Plaw():
         if response.status_code == 400:
             raise InvalidGrant('Refresh token is invalid. Perhaps it was revoked?')
         return response.json()['access_token']
+
+    def _call(self, endpoint):
+        '''
+        just calls the API with the parameters given. used exclusively by _call_api()
+        :param endpoint: string of the endpoint being called.
+        :return: the decoded JSON from response
+        '''
+        endpoint = self.BASE_URL + endpoint
+        bearer = {
+            'Authorization': 'Bearer ' + self.access_token
+        }
+
+        response = request('GET', endpoint, headers=bearer)
+        if response.status_code == 401 or response.status_code == 400:
+            raise InvalidToken('Access Token is Expired.')
+        return response.json()
+
+    def _call_api(self, endpoint):
+        '''
+        utility function for calling API. this is the one that other functions
+        of the class will use. handles pagination, rate limiting,
+        token refreshes.
+        :param endpoint: string of the endpoint being called.
+                         passed on to _call()
+        :return: the decoded JSON from response
+        '''
+        try:
+            return self._call(endpoint)
+        except InvalidToken:
+            self.access_token = self._refresh_access_token()
+            return self._call(endpoint)
