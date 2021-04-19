@@ -1,6 +1,11 @@
 import random, string
+from datetime import datetime
+import pytz
+import json
+import types
+
 from unittest import TestCase
-from unittest.mock import patch, PropertyMock
+from unittest.mock import patch
 
 from plaw import Plaw, InvalidGrant, InvalidToken
 
@@ -59,7 +64,7 @@ class TestPlaw(TestCase):
         }
         mock_request.return_value.json.return_value = mocked_response
 
-        decoded_response = self.test_api._call('/API/Account.json')
+        decoded_response = self.test_api._call('/API/Account.json', params=None)
 
         self.assertEqual(decoded_response, mocked_response)
 
@@ -68,7 +73,7 @@ class TestPlaw(TestCase):
         mock_request.return_value.status_code = 401
 
         with self.assertRaises(InvalidToken):
-            self.test_api._call('/API/Account.json')
+            self.test_api._call('/API/Account.json', params=None)
 
     @patch('plaw.Plaw._call')
     @patch('plaw.Plaw._refresh_access_token')
@@ -85,21 +90,66 @@ class TestPlaw(TestCase):
                 'name': 'Test Store for API Testing',
                 'link': {
                     '@attributes': {
-                        'href': '/API/Account/12345'
+                        'href': '/API/Account/12345T'
                     }
                 }
             }
         }
         mock_call.side_effect = [InvalidToken, refreshed_call_response]
 
-        decoded_response = self.test_api._call_api('/API/Account.json')
+        response_gen = self.test_api._call_api('/API/Account.json')
+        decoded_response = next(response_gen)
 
         self.assertEqual(new_access_token, self.test_api.access_token)
         self.assertEqual(decoded_response, refreshed_call_response)
 
+    @patch('plaw.Plaw._call')
+    def test_call_api_converts_datetimes_to_iso_and_handles_query_ops(self, mock_call):
+        # TODO make this two tests
+        test_date = pytz.timezone('America/Boise').localize(datetime(2021, 1, 1, 10, 58), is_dst=None)
+
+        next(self.test_api._call_api(f'API/Account/{self.test_api.account_id}/EmployeeHours.json',
+                                params={
+                                    'checkIn': ['>', test_date]
+                                }))
+
+        mock_call.assert_called_with(f'API/Account/{self.test_api.account_id}/EmployeeHours.json',
+                                     {
+                                         'checkIn': f'>,{test_date.isoformat()}'
+                                     })
+
+    @patch('plaw.Plaw._call')
+    def test_call_api_handles_pagination(self, mock_call):
+        with open('pagination_test_file.json') as jf:
+            mocked_responses = json.load(jf)
+        mock_call.side_effect = mocked_responses
+
+        test_date = pytz.timezone('America/Boise').localize(datetime(2021, 2, 1, 1), is_dst=None)
+        shifts_since_february = self.test_api._call_api(f'API/Account/{self.test_api.account_id}/EmployeeHours.json',
+                                                        params={
+                                                            'checkIn': ['>', test_date]
+                                                        })
+
+        self.assertTrue(isinstance(shifts_since_february, types.GeneratorType))
+
+        first_page = next(shifts_since_february)
+        self.assertEqual('0', first_page['@attributes']['offset'])
+        self.assertEqual(first_page, mocked_responses[0])
+
+        second_page = next(shifts_since_february)
+        self.assertEqual('100', second_page['@attributes']['offset'])
+        self.assertEqual(second_page, mocked_responses[1])
+
+        third_page = next(shifts_since_february)
+        self.assertEqual('200', third_page['@attributes']['offset'])
+        self.assertEqual(third_page, mocked_responses[2])
+
+        with self.assertRaises(StopIteration):
+            next(shifts_since_february)
+
+
     def test_call_api_handles_rate_limiting(self):
         pass
 
-    def test_call_api_handles_pagination(self):
-        pass
+
 
