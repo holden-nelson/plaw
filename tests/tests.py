@@ -200,186 +200,73 @@ class TestPlaw(TestCase):
         # tabling this for now
         pass
 
-    def test_strip_attributes_strips_attributes(self):
-        with open('pagination_test_file.json') as jf:
-            example_responses = json.load(jf)
-
-        for response in example_responses:
-            stripped_response = self.test_api._strip_attributes(response)
-            self.assertFalse(isinstance(stripped_response, dict))
-            self.assertTrue(isinstance(stripped_response, list))
-            self.assertEqual(response['EmployeeHours'], stripped_response)
-
-    def test_strip_attributes_puts_solo_responses_into_lists(self):
-        example_solo_response = {
-            '@attributes': None,
-            'Endpoint': {
-                'Example Response': None
-            }
-        }
-
-        stripped_response = self.test_api._strip_attributes(example_solo_response)
-
-        self.assertFalse(isinstance(stripped_response, dict))
-        self.assertTrue(isinstance(stripped_response, list))
-        self.assertEqual(example_solo_response['Endpoint'], stripped_response[0])
-
     @patch('plaw.Plaw._call')
-    def test_combine_paginated_response_combines_paginated_response(self, mock_call):
-        with open('pagination_test_file.json') as jf:
-            mocked_responses = json.load(jf)
-        mock_call.side_effect = mocked_responses
-
-        test_date = pytz.timezone('America/Boise').localize(datetime(2021, 2, 1, 1), is_dst=None)
-        shifts_since_february = self.test_api._call_api(f'API/Account/{self.test_api.account_id}/EmployeeHours.json',
-                                                        params={
-                                                            'checkIn': ['>', test_date]
-                                                        })
-
-        combined_response = self.test_api._combine_paginated_response(shifts_since_february)
-        expected_response = []
-        for response in mocked_responses:
-            expected_response += response['EmployeeHours']
-
-        self.assertTrue(isinstance(combined_response, list))
-        self.assertEqual(combined_response, expected_response)
-
-
-    @patch('plaw.Plaw._strip_attributes')
-    @patch('plaw.Plaw._call_api')
-    def test_account_returns_account_info(self, mocked_call, mocked_strip):
+    def test_account_returns_account_info(self, mocked_call):
         # mocked call is necessary because it tries to evaluate before _strip_attributes does
-        mocked_strip.return_value = [{
-            "accountID": "12345",
-            "name": "Test Store",
-            "link": {
-                "@attributes": {
-                    "href": "/API/Account/12345"
+        mocked_call.return_value = {
+            '@attributes': {
+                'count': '1'
+            },
+            'Account': {
+                'accountID': '12345',
+                'name': 'Test Account',
+                'link': {
+                    '@attributes': {
+                        'href': '/API/Account/12345'
+                    }
                 }
             }
-        }]
+        }
 
         account_info = self.test_api.account()
 
         self.assertTrue(isinstance(account_info, dict))
-        self.assertFalse(isinstance(account_info, list))
-        self.assertFalse('link' in account_info)
+        self.assertFalse(isinstance(account_info, types.GeneratorType))
 
-    @patch('plaw.Plaw._combine_paginated_response')
-    def test_shop_returns_shop_info(self, mocked_combine):
-        example_shop_list = [
-            {
-                "shopID": "1",
-                "name": "Test Shop 1",
-                "serviceRate": "0",
-                "timeZone": "US/Mountain",
-                "taxLabor": "false",
-                "labelTitle": "Shop Name",
-                "labelMsrp": "false",
-                "archived": "false",
-                "timeStamp": "2021-01-03T22:06:01+00:00",
-                "companyRegistrationNumber": "",
-                "vatNumber": "",
-                "zebraBrowserPrint": "false",
-                "contactID": "4",
-                "taxCategoryID": "2",
-                "receiptSetupID": "1",
-                "ccGatewayID": "4",
-                "gatewayConfigID": "2c3ee5bd-ff2c-4ce1-a7b4-0adsdafdcd82",
-                "priceLevelID": "1"
-            },
-            {
-                "shopID": "2",
-                "name": "Test Shop 2",
-                "serviceRate": "0",
-                "timeZone": "America/Denver",
-                "taxLabor": "false",
-                "labelTitle": "No Title",
-                "labelMsrp": "false",
-                "archived": "false",
-                "timeStamp": "2021-01-12T22:04:53+00:00",
-                "companyRegistrationNumber": "",
-                "vatNumber": "",
-                "zebraBrowserPrint": "false",
-                "contactID": "1214",
-                "taxCategoryID": "3",
-                "receiptSetupID": "2",
-                "ccGatewayID": "0",
-                "gatewayConfigID": "54f8edb4-3c5e-4c2a-b137-ddafsfad17b70",
-                "priceLevelID": "1"
-            }
-        ]
-        mocked_combine.return_value = example_shop_list
+    @patch('plaw.Plaw._call')
+    def test_shop_returns_shop_info(self, mocked_call):
+        with open('shop_test_file.json') as jf:
+            test_shop_info = json.load(jf)
+        mocked_call.return_value = test_shop_info
 
         shop_info = self.test_api.shop()
 
-        self.assertEqual(shop_info, example_shop_list)
-
-    @patch('plaw.Plaw._combine_paginated_response')
-    def test_shop_handles_requests_for_pagination(self, mocked_combine):
-        # the user can choose to paginate responses by passing in paginated=True to the function
-        # if they do they'll be given a generator to get their responses from
-        # if they don't they'll be given the list of dicts
-
-        # paginated False
-        combined_shop_list = [
-            {
-                "shopID": "1",
-                "name": "Test Shop 1",
-                "serviceRate": "0",
-                "timeZone": "US/Mountain",
-                "taxLabor": "false",
-                "labelTitle": "Shop Name",
-                "labelMsrp": "false",
-                "archived": "false",
-                "timeStamp": "2021-01-03T22:06:01+00:00",
-                "companyRegistrationNumber": "",
-                "vatNumber": "",
-                "zebraBrowserPrint": "false",
-                "contactID": "4",
-                "taxCategoryID": "2",
-                "receiptSetupID": "1",
-                "ccGatewayID": "4",
-                "gatewayConfigID": "2c3ee5bd-ff2c-4ce1-a7b4-0adsdafdcd82",
-                "priceLevelID": "1"
-            },
-            {
-                "shopID": "2",
-                "name": "Test Shop 2",
-                "serviceRate": "0",
-                "timeZone": "America/Denver",
-                "taxLabor": "false",
-                "labelTitle": "No Title",
-                "labelMsrp": "false",
-                "archived": "false",
-                "timeStamp": "2021-01-12T22:04:53+00:00",
-                "companyRegistrationNumber": "",
-                "vatNumber": "",
-                "zebraBrowserPrint": "false",
-                "contactID": "1214",
-                "taxCategoryID": "3",
-                "receiptSetupID": "2",
-                "ccGatewayID": "0",
-                "gatewayConfigID": "54f8edb4-3c5e-4c2a-b137-ddafsfad17b70",
-                "priceLevelID": "1"
-            }
-        ]
-        mocked_combine.return_value = combined_shop_list
-        shop_info = self.test_api.shop()
-        self.assertTrue(isinstance(shop_info, list))
-
-        # paginated True
-        shop_info = self.test_api.shop(paginated=True)
         self.assertTrue(isinstance(shop_info, types.GeneratorType))
+        self.assertEqual(next(shop_info), test_shop_info)
 
+    @patch('plaw.Plaw._call')
+    def test_employee_returns_employee_info(self, mocked_call):
+        with open('employee_test_file.json') as jf:
+            test_employee_info = json.load(jf)[0]
+        mocked_call.return_value = test_employee_info
 
-    def test_employee_returns_employee_info(self):
-        pass
+        employee_info = self.test_api.employee()
 
-    def test_employee_hours_returns_employee_hours_info(self):
-        pass
+        self.assertTrue(isinstance(employee_info, types.GeneratorType))
+        self.assertEqual(next(employee_info), test_employee_info)
 
+    @patch('plaw.Plaw._call')
+    def test_employee_loads_contact_relation(self, mocked_call):
+        with open('employee_test_file.json') as jf:
+            test_employee_info = json.load(jf)[1]
+        mocked_call.return_value = test_employee_info
 
+        employee_info = self.test_api.employee(load_contact=True)
 
+        self.assertTrue(isinstance(employee_info, types.GeneratorType))
+        self.assertEqual(next(employee_info), test_employee_info)
+        mocked_call.assert_called_with(f'API/Account/{self.test_api.account_id}/Employee.json',
+                                       {
+                                           'load_relations': json.dumps(['Contact'])
+                                       })
 
+    @patch('plaw.Plaw._call')
+    def test_employee_hours_returns_employee_hours_info(self, mocked_call):
+        with open('employee_hours_test_file.json') as jf:
+            test_employee_hours_info = json.load(jf)
+        mocked_call.return_value = test_employee_hours_info
 
+        employee_hours_info = self.test_api.employee_hours()
+
+        self.assertTrue(isinstance(employee_hours_info, types.GeneratorType))
+        self.assertEqual(next(employee_hours_info), test_employee_hours_info)
