@@ -7,7 +7,7 @@ import types
 from unittest import TestCase
 from unittest.mock import patch
 
-from plaw import Plaw, InvalidGrant, InvalidToken
+from plaw.wrapper import Plaw, InvalidGrant, InvalidToken
 
 class TestPlaw(TestCase):
 
@@ -23,7 +23,7 @@ class TestPlaw(TestCase):
                                      refresh_token=self.generate_random_token(),
                                      access_token=self.generate_random_token())
 
-    @patch('plaw.request')
+    @patch('plaw.wrapper.request')
     def test_refresh_access_token_successfully_saves_new_token(self, mock_request):
         mock_request.return_value.status_code = 200
         mocked_response = {
@@ -38,14 +38,14 @@ class TestPlaw(TestCase):
 
         self.assertEqual(new_refresh_token, mocked_response['access_token'])
 
-    @patch('plaw.request')
+    @patch('plaw.wrapper.request')
     def test_refresh_access_token_raises_on_revoked_access(self, mock_request):
         mock_request.return_value.status_code = 400
 
         with self.assertRaises(InvalidGrant):
             self.test_api._refresh_access_token()
 
-    @patch('plaw.request')
+    @patch('plaw.wrapper.request')
     def test_call_returns_decoded_json(self, mock_request):
         mock_request.return_value.status_code = 200
         mocked_response = {
@@ -68,15 +68,15 @@ class TestPlaw(TestCase):
 
         self.assertEqual(decoded_response, mocked_response)
 
-    @patch('plaw.request')
+    @patch('plaw.wrapper.request')
     def test_call_raises_on_invalid_token(self, mock_request):
         mock_request.return_value.status_code = 401
 
         with self.assertRaises(InvalidToken):
             self.test_api._call('/API/Account.json', params=None)
 
-    @patch('plaw.Plaw._call')
-    @patch('plaw.Plaw._refresh_access_token')
+    @patch('plaw.wrapper.Plaw._call')
+    @patch('plaw.wrapper.Plaw._refresh_access_token')
     def test_call_api_refreshes_access_token_if_necessary(self, mock_refresh, mock_call):
         new_access_token = self.generate_random_token()
         mock_refresh.return_value = new_access_token
@@ -103,7 +103,7 @@ class TestPlaw(TestCase):
         self.assertEqual(new_access_token, self.test_api.access_token)
         self.assertEqual(decoded_response, refreshed_call_response)
 
-    @patch('plaw.Plaw._call')
+    @patch('plaw.wrapper.Plaw._call')
     def test_call_api_converts_datetimes_to_iso(self, mock_call):
         test_date = pytz.timezone('America/Boise').localize(datetime(2021, 1, 1, 10, 58), is_dst=None)
 
@@ -130,7 +130,7 @@ class TestPlaw(TestCase):
                                      })
 
 
-    @patch('plaw.Plaw._call')
+    @patch('plaw.wrapper.Plaw._call')
     def test_call_api_handles_query_ops(self, mocked_call):
         # the default operator is =
         # so if the user intends equals they don't pass in a query op
@@ -160,7 +160,7 @@ class TestPlaw(TestCase):
 
 
 
-    @patch('plaw.Plaw._call')
+    @patch('plaw.wrapper.Plaw._call')
     def test_call_api_handles_pagination(self, mock_call):
         with open('pagination_test_file.json') as jf:
             mocked_responses = json.load(jf)
@@ -199,7 +199,7 @@ class TestPlaw(TestCase):
         # tabling this for now
         pass
 
-    @patch('plaw.request')
+    @patch('plaw.wrapper.request')
     def test_get_tokens_saves_new_tokens(self, mocked_request):
         test_access_token = self.generate_random_token()
         test_refresh_token = self.generate_random_token()
@@ -224,7 +224,7 @@ class TestPlaw(TestCase):
             'grant_type': 'authorization_code'
         })
 
-    @patch('plaw.Plaw.account')
+    @patch('plaw.wrapper.Plaw.account')
     def test_fetch_account_id_saves_account_id(self, mocked_account):
         mocked_account.return_value = {
             "accountID": "67890",
@@ -241,7 +241,7 @@ class TestPlaw(TestCase):
         self.assertTrue(self.test_api.account_id, '67890')
 
 
-    @patch('plaw.Plaw._call')
+    @patch('plaw.wrapper.Plaw._call')
     def test_account_returns_account_info(self, mocked_call):
         # mocked call is necessary because it tries to evaluate before _strip_attributes does
         mocked_call.return_value = {
@@ -264,7 +264,7 @@ class TestPlaw(TestCase):
         self.assertTrue(isinstance(account_info, dict))
         self.assertFalse(isinstance(account_info, types.GeneratorType))
 
-    @patch('plaw.Plaw._call')
+    @patch('plaw.wrapper.Plaw._call')
     def test_shop_returns_shop_info(self, mocked_call):
         with open('shop_test_file.json') as jf:
             test_shop_info = json.load(jf)
@@ -275,7 +275,7 @@ class TestPlaw(TestCase):
         self.assertTrue(isinstance(shop_info, types.GeneratorType))
         self.assertEqual(next(shop_info), test_shop_info)
 
-    @patch('plaw.Plaw._call')
+    @patch('plaw.wrapper.Plaw._call')
     def test_employee_returns_employee_info(self, mocked_call):
         with open('employee_test_file.json') as jf:
             test_employee_info = json.load(jf)[0]
@@ -286,7 +286,7 @@ class TestPlaw(TestCase):
         self.assertTrue(isinstance(employee_info, types.GeneratorType))
         self.assertEqual(next(employee_info), test_employee_info)
 
-    @patch('plaw.Plaw._call')
+    @patch('plaw.wrapper.Plaw._call')
     def test_employee_loads_contact_relation(self, mocked_call):
         with open('employee_test_file.json') as jf:
             test_employee_info = json.load(jf)[1]
@@ -301,7 +301,7 @@ class TestPlaw(TestCase):
                                            'load_relations': json.dumps(['Contact'])
                                        })
 
-    @patch('plaw.Plaw._call')
+    @patch('plaw.wrapper.Plaw._call')
     def test_employee_hours_returns_employee_hours_info(self, mocked_call):
         with open('employee_hours_test_file.json') as jf:
             test_employee_hours_info = json.load(jf)
