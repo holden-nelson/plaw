@@ -5,4 +5,3 @@ scaffolding.py
 .envrc
 __pycache__/
 dist
-pyproject.toml

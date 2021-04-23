@@ -1,0 +1,16 @@
+[build-system]
+requires = ["flit_core >=2,<4"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.metadata]
+module = "plaw"
+author = "Holden Nelson"
+author-email = "holden.nathaniel.nelson@gmail.com"
+home-page = "https://github.com/holden-nelson/plaw"
+classifiers = [ "License :: OSI Approved :: MIT License",]
+description-file = "README.md"
+requires = [
+    "requests",
+    "pytz"
+]
+keywords = "Lightspeed, API, Wrapper"
