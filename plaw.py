@@ -25,7 +25,6 @@ class Plaw():
         self.refresh_token = refresh_token
         self.access_token = access_token
 
-
     def _refresh_access_token(self):
         '''
         uses refresh token to retrieve a new access token
@@ -119,6 +118,35 @@ class Plaw():
                     break
             else:
                 break
+
+    def get_tokens(self, code):
+        '''
+        uses temp code from lightspeed to request and save initial tokens
+        :param code: temporary code from LS
+        :return: Nothing - just updates the codes
+        '''
+        # TODO throw an exception on timeout
+
+        payload = {
+            'client_id': self.client_id,
+            'client_secret': self.client_secret,
+            'code': code,
+            'grant_type': 'authorization_code'
+        }
+
+        response = request('POST', self.AUTH_URL, data=payload)
+
+        self.access_token = response.json()['access_token']
+        self.refresh_token = response.json()['refresh_token']
+
+    def fetch_account_id(self):
+        '''
+        likely used right after get_tokens() - adds the account id to
+        the object so you can actually call the API
+        :return: Nothing - just updates account_id
+        '''
+        account_info = self.account()
+        self.account_id = account_info['accountID']
 
     def account(self):
         '''

@@ -189,7 +189,6 @@ class TestPlaw(TestCase):
         with self.assertRaises(StopIteration):
             next(shifts_since_february)
 
-
     def test_call_api_handles_rate_limiting(self):
         # so
         # LS uses a leaky bucket algorithm to handle rate limiting
@@ -199,6 +198,48 @@ class TestPlaw(TestCase):
 
         # tabling this for now
         pass
+
+    @patch('plaw.request')
+    def test_get_tokens_saves_new_tokens(self, mocked_request):
+        test_access_token = self.generate_random_token()
+        test_refresh_token = self.generate_random_token()
+        test_code = self.generate_random_token()
+
+        mocked_request.return_value.json.return_value = {
+            'access_token': test_access_token,
+            'expires_in': 1800,
+            'token_type': 'bearer',
+            'scope': f'employee:all systemuserid:{self.generate_random_token(length=5)}',
+            'refresh_token': test_refresh_token
+        }
+
+        self.test_api.get_tokens(test_code)
+
+        self.assertEqual(self.test_api.access_token, test_access_token)
+        self.assertEqual(self.test_api.refresh_token, test_refresh_token)
+        mocked_request.assert_called_with('POST', self.test_api.AUTH_URL, data={
+            'client_id': self.test_api.client_id,
+            'client_secret': self.test_api.client_secret,
+            'code': test_code,
+            'grant_type': 'authorization_code'
+        })
+
+    @patch('plaw.Plaw.account')
+    def test_fetch_account_id_saves_account_id(self, mocked_account):
+        mocked_account.return_value = {
+            "accountID": "67890",
+            "name": "Test Account",
+            "link": {
+                "@attributes": {
+                    "href": "/API/Account/67890"
+                }
+            }
+        }
+
+        self.test_api.fetch_account_id()
+
+        self.assertTrue(self.test_api.account_id, '67890')
+
 
     @patch('plaw.Plaw._call')
     def test_account_returns_account_info(self, mocked_call):
