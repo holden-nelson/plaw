@@ -7,6 +7,8 @@ This is an incomplete project - I'm building another tool that depends on the Li
 I've only implemented interfaces to the endpoints I'm using - ```Account```, ```Shop```, ```Employee```, and ```EmployeeHours```. It's possible I'll come back later and implement more, but not guaranteed.
 
 I'd accept any contribution with open arms - just do me a favor and make sure you add tests. 
+## Installation
+```pip install plaw```
 
 ## Usage
 The ```Plaw``` class contains all attributes and methods necessary to interact with the API. Most users would probably instantiate a new object like so:
